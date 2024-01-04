@@ -1,0 +1,80 @@
+# docker-compose.yml
+version: '3.8'
+services:
+  postgres:
+    image: postgres:alpine
+    environment:
+      POSTGRES_DB: mxPrevList
+      POSTGRES_USER: mx
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5435:5432"
+    restart: always
+    healthcheck:
+      test: "exit 0"
+  postgres_keycloak:
+    image: postgres:alpine
+    environment:
+      POSTGRES_DB: keycloak_db
+      POSTGRES_USER: mx
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5437:5432"
+    restart: always
+    healthcheck:
+      test: "exit 0"
+  pgweb:
+    image: sosedoff/pgweb
+    depends_on:
+      - postgres
+    environment:
+      PGWEB_DATABASE_URL: postgres://mx:password@postgres:5432/mxPrevList?sslmode=disable
+    ports:
+      - "8085:8081"
+    restart: always
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    command: start-dev
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres_keycloak
+      KC_DB_URL_DATABASE: keycloak_db
+      KC_DB_USERNAME: mx
+      KC_DB_PASSWORD: password
+      KC_DB_SCHEMMA: public
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "9980:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+  redis:
+    image: redis:latest
+    command: redis-server
+    volumes:
+      - redis:/var/lib/redis
+      - redis-config:/usr/local/etc/redis/redis.conf
+    ports:
+      - "6379:6379"
+    networks:
+      - redis-network
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=root
+      - HTTP_PASSWORD=qwerty
+    ports:
+      - "8081:8081"
+    networks:
+      - redis-network
+    depends_on:
+      - redis
+volumes:
+  redis:
+  redis-config:
+networks:
+  redis-network:
+    driver: bridge
+  
